@@ -114,8 +114,7 @@ public class KernelComm implements IKernelComm {
 
             @Override
             public void onAuthCancelled(TelegramApi api) {
-                apiState.resetAuth();
-                BotLogger.severe(LOGTAG, "Auth cancelled");
+                BotLogger.severe(LOGTAG, "Auth cancellation attempt overidden as it is likely just a bot shutdown. Logout to kill session");
             }
 
             @Override

@@ -6,6 +6,7 @@ import org.telegram.bot.ChatUpdatesBuilder;
 import org.telegram.bot.kernel.differenceparameters.DifferenceParametersService;
 import org.telegram.bot.kernel.engine.MemoryApiState;
 import org.telegram.bot.services.BotLogger;
+import org.telegram.bot.services.NotificationsService;
 import org.telegram.bot.structure.BotConfig;
 import org.telegram.bot.structure.LoginStatus;
 import org.telegram.mtproto.log.LogInterface;
@@ -40,7 +41,7 @@ public class TelegramBot {
             throw new NullPointerException("At least a ChatUpdatesBuilder must be added");
         }
         BotLogger.info(LOGTAG, "--------------KERNEL CREATED--------------");
-        setLogging();
+//        setLogging();
         this.apiKey = apiKey;
         this.apiHash = apiHash;
         this.config = config;
@@ -88,14 +89,14 @@ public class TelegramBot {
         });
     }
 
-    public LoginStatus init() throws NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException {
+    public LoginStatus init(boolean sendCode) throws NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException {
         BotLogger.debug(LOGTAG, "Creating API");
         apiState = new MemoryApiState(config.getAuthfile());
         BotLogger.debug(LOGTAG, "API created");
         createKernelComm(); // Only set up threads and assign api state
         createKernelAuth(); // Only assign api state to kernel auth
         initKernelComm(); // Create TelegramApi and run the updates handler threads
-        final LoginStatus loginResult = startKernelAuth(); // Perform login if necessary
+        final LoginStatus loginResult = startKernelAuth(sendCode); // Perform login if necessary
         createKernelHandler(); // Create rest of handlers
         BotLogger.info(LOGTAG, "----------------BOT READY-----------------");
         return loginResult;
@@ -106,7 +107,10 @@ public class TelegramBot {
     }
 
     public void stopBot() {
+
         this.mainHandler.stop();
+        NotificationsService.getInstance().close();
+
     }
 
     private void initKernelHandler() {
@@ -127,9 +131,9 @@ public class TelegramBot {
         BotLogger.info(LOGTAG, String.format("%s init in %d ms", this.kernelAuth.getClass().getName(), (start - System.currentTimeMillis()) * -1));
     }
 
-    private LoginStatus startKernelAuth() {
+    private LoginStatus startKernelAuth(boolean sendCode) {
         final long start = System.currentTimeMillis();
-        final LoginStatus status = this.kernelAuth.start();
+        final LoginStatus status = this.kernelAuth.start(sendCode);
         BotLogger.info(LOGTAG, String.format("%s started in %d ms", this.kernelAuth.getClass().getName(), (start - System.currentTimeMillis()) * -1));
         return status;
     }

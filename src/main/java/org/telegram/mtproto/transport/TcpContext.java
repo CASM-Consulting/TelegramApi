@@ -56,7 +56,7 @@ public class TcpContext implements PyroClientListener {
         this.port = port;
         this.callback = callback;
         this.selector = new PyroSelector();
-        this.selector.spawnNetworkThread("Selector Thread");
+//        this.selector.spawnNetworkThread("Selector Thread");
         BuffersStorage.getInstance();
     }
 
@@ -551,5 +551,9 @@ public class TcpContext implements PyroClientListener {
         }
         lastPacketLength = 0;
         channelToken = 0;
+    }
+
+    public void closePyro() throws IOException {
+        this.selector.close();
     }
 }

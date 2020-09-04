@@ -175,7 +175,11 @@ public class MTProto {
             if (this.responseProcessor != null) {
                 this.responseProcessor.interrupt();
             }
-            closeConnections();
+            try {
+                closeConnections();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -183,12 +187,14 @@ public class MTProto {
         return this.isClosed;
     }
 
-    public void closeConnections() {
+    public void closeConnections() throws IOException {
         synchronized (this.contexts) {
             for (TcpContext context : this.contexts) {
-                context.suspendConnection(true);
+                context.closePyro();
+                context.suspendConnection(false);
                 this.scheduller.onConnectionDies(context.getContextId());
             }
+
             this.contexts.clear();
             this.contexts.notifyAll();
         }

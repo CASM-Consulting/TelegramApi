@@ -49,6 +49,7 @@ public class Uploader {
     private final AtomicInteger fileIds = new AtomicInteger(1);
     private final String TAG;
     private final Object threadLocker = new Object();
+    private boolean closed;
     private TelegramApi api;
     private ArrayList<UploadTask> tasks = new ArrayList<UploadTask>();
     private ArrayList<UploadFileThread> threads = new ArrayList<UploadFileThread>();
@@ -62,6 +63,7 @@ public class Uploader {
     public Uploader(TelegramApi api) {
         this.TAG = api.toString() + "#Uploader";
         this.api = api;
+        this.closed = false;
 
         for (int i = 0; i < PARALLEL_PARTS_COUNT; i++) {
             UploadFileThread thread = new UploadFileThread();
@@ -86,6 +88,13 @@ public class Uploader {
             }
         }
         return null;
+    }
+
+    public void close() {
+        this.closed = true;
+        for(Thread thread : this.threads){
+            thread.interrupt();
+        }
     }
 
     /**
@@ -509,7 +518,7 @@ public class Uploader {
         @Override
         public void run() {
             setPriority(Thread.MIN_PRIORITY);
-            while (true) {
+            while (!closed) {
                 Logger.d(Uploader.this.TAG, "UploadFileThread iteration");
                 try {
                     Thread.sleep(50);

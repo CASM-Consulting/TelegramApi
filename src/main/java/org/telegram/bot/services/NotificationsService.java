@@ -21,9 +21,17 @@ public class NotificationsService {
     private final ConcurrentLinkedDeque<Notification> notificationsQueue = new ConcurrentLinkedDeque<>();
     private final ConcurrentHashMap<Integer, ConcurrentLinkedDeque<NotificationObserver>> observers = new ConcurrentHashMap<>();
 
+    private boolean closed;
+
     private NotificationsService() {
         this.thread = new NotificationsThread();
         this.thread.start();
+        this.closed = false;
+    }
+
+    public void close(){
+        closed = true;
+        this.thread.interrupt();
     }
 
     public static NotificationsService getInstance() {
@@ -97,6 +105,7 @@ public class NotificationsService {
     }
 
     private class NotificationsThread extends Thread {
+
         public NotificationsThread() {
             super();
             this.setName("NotificationsThread#" + this.getId());
@@ -105,7 +114,7 @@ public class NotificationsService {
         @Override
         public void run() {
             Notification currentNotification;
-            while (true) {
+            while (!closed) {
                 currentNotification = notificationsQueue.pollFirst();
                 if (currentNotification == null) {
                     try {

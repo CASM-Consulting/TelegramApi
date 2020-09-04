@@ -15,11 +15,12 @@ import java.util.concurrent.LinkedBlockingDeque;
 
 @SuppressWarnings("ObjectEquality")
 public class PyroSelector {
-    private static boolean DO_NOT_CHECK_NETWORK_THREAD = false;
+    private static boolean DO_NOT_CHECK_NETWORK_THREAD = true;
     static final int BUFFER_SIZE = 64 * 1024;
     private Thread networkThread;
     private final Selector nioSelector;
     final ByteBuffer networkBuffer;
+    private boolean closed;
 
     public PyroSelector() {
         this.networkBuffer = ByteBuffer.allocateDirect(BUFFER_SIZE);
@@ -30,7 +31,10 @@ public class PyroSelector {
             throw new PyroException("Failed to open a selector?!", exc);
         }
 
-        this.networkThread = Thread.currentThread();
+        closed = false;
+        this.networkThread = new NetworkThread();
+        this.networkThread.start();
+
     }
 
     //
@@ -45,6 +49,7 @@ public class PyroSelector {
     }
 
     public final void checkThread() {
+
         if (DO_NOT_CHECK_NETWORK_THREAD) {
             return;
         }
@@ -63,7 +68,9 @@ public class PyroSelector {
     }
 
     public void select() {
-        this.select(0);
+        if(!Thread.currentThread().isInterrupted()) {
+            this.select(0);
+        }
     }
 
     public void select(long eventTimeout) {
@@ -132,43 +139,71 @@ public class PyroSelector {
         }
     }
 
-    public void spawnNetworkThread(final String name) {
-        // now no thread can access this selector
-        //
-        // N.B.
-        // -- updating this non-volatile field is thread-safe
-        // -- because the current thread can see it (causing it
-        // -- to become UNACCESSIBLE), and all other threads
-        // -- that might not see the change will
-        // -- (continue to) block access to this selector
-        this.networkThread = null;
+//    public void spawnNetworkThread(final String name) {
+//        // now no thread can access this selector
+//        //
+//        // N.B.
+//        // -- updating this non-volatile field is thread-safe
+//        // -- because the current thread can see it (causing it
+//        // -- to become UNACCESSIBLE), and all other threads
+//        // -- that might not see the change will
+//        // -- (continue to) block access to this selector
+//        this.networkThread = null;
+//
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                // spawned thread can access this selector
+//                //
+//                // N.B.
+//                // -- updating this non-volatile field is thread-safe
+//                // -- because the current thread can see it (causing it
+//                // -- to become ACCESSIBLE), and all other threads
+//                // -- that might not see the change will
+//                // -- (continue to) block access to this selector
+//                PyroSelector.this.networkThread = Thread.currentThread();
+//
+//                // start select-loop
+//                try {
+//                    while (true) {
+//                        PyroSelector.this.select();
+//                    }
+//                } catch (Exception exc) {
+//                    throw new IllegalStateException(exc);
+//                }
+//            }
+//        }, name).start();
+//    }
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                // spawned thread can access this selector
-                //
-                // N.B.
-                // -- updating this non-volatile field is thread-safe
-                // -- because the current thread can see it (causing it
-                // -- to become ACCESSIBLE), and all other threads
-                // -- that might not see the change will
-                // -- (continue to) block access to this selector
-                PyroSelector.this.networkThread = Thread.currentThread();
+    public class NetworkThread extends Thread {
 
-                // start select-loop
-                try {
-                    while (true) {
-                        PyroSelector.this.select();
-                    }
-                } catch (Exception exc) {
-                    throw new IllegalStateException(exc);
+        private boolean isAlive;
+
+        public NetworkThread() {
+            super();
+            isAlive = true;
+            this.setName("Selector Thread#" + this.getId());
+        }
+
+        @Override
+        public void interrupt(){
+            isAlive = false;
+            super.interrupt();
+        }
+
+        public void run() {
+
+            // start select-loop
+            try {
+                while (isAlive) {
+                    PyroSelector.this.select();
                 }
+            } catch (Exception exc) {
+                throw new IllegalStateException(exc);
             }
-        }, name).start();
-    }
+        }
 
-    //
+    }
 
     private BlockingQueue<Runnable> tasks = new LinkedBlockingDeque<>();
 
@@ -190,8 +225,9 @@ public class PyroSelector {
     }
 
     public void close() throws IOException {
-        this.networkThread.interrupt();
+        closed = true;
         this.nioSelector.close();
+        this.networkThread.interrupt();
         this.networkBuffer.clear();
     }
 

@@ -245,7 +245,26 @@ public class TelegramApi {
                 this.timeoutThread.interrupt();
                 this.timeoutThread = null;
             }
-            this.mainProto.close();
+            if(this.dcThread != null) {
+                this.dcThread.interrupt();
+            }
+            if(this.senderThread != null) {
+                this.senderThread.interrupt();
+            }
+            if(this.downloader != null) {
+                this.downloader.close();
+            }
+            if(this.uploader != null){
+                this.uploader.close();
+            }
+            if(this.mainProto != null){
+                this.mainProto.close();
+            }
+            if(dcProtos != null) {
+                for(MTProto proto : dcProtos.values()) {
+                    proto.close();
+                }
+            }
         }
     }
 

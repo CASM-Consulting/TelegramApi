@@ -58,6 +58,7 @@ public class Downloader {
     private ArrayList<DownloadTask> tasks = new ArrayList<DownloadTask>();
     private ArrayList<DownloadFileThread> threads = new ArrayList<DownloadFileThread>();
     private Random rnd = new Random();
+    private boolean closed;
 
     /**
      * Instantiates a new Downloader.
@@ -67,11 +68,19 @@ public class Downloader {
     public Downloader(TelegramApi api) {
         this.TAG = api.toString() + "#Downloader";
         this.api = api;
+        closed = false;
 
         for (int i = 0; i < PARALLEL_PARTS_COUNT; i++) {
             DownloadFileThread thread = new DownloadFileThread();
             thread.start();
             this.threads.add(thread);
+        }
+    }
+
+    public void close() {
+        closed = true;
+        for(Thread thread : this.threads) {
+            thread.interrupt();
         }
     }
 
@@ -439,7 +448,7 @@ public class Downloader {
         @Override
         public void run() {
             setPriority(Thread.MIN_PRIORITY);
-            while (true) {
+            while (!closed) {
                 Logger.d(Downloader.this.TAG, "DownloadFileThread iteration");
                 try {
                     Thread.sleep(50);

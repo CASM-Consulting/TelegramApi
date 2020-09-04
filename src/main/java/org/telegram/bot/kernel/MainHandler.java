@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class MainHandler implements NotificationsService.NotificationObserver {
     private static final String LOGTAG = "KERNELHANDLER";
     private final IKernelComm kernelComm;
+    private final UpdatesHandlerThread updatesHandlerThread;
 
     private boolean running;
     private final AtomicBoolean gettingDifferences = new AtomicBoolean(false);
@@ -48,23 +49,29 @@ public class MainHandler implements NotificationsService.NotificationObserver {
         this.kernelComm = kernelComm;
         this.updatesHandler = updatesHandler;
         this.running = false;
-        new UpdatesHandlerThread().start();
+        updatesHandlerThread = new UpdatesHandlerThread();
         updateHandlerThread = new UpdateHandlerThread();
-        updateHandlerThread.start();
         kernelComm.setMainHandler(this);
     }
 
     public void start() {
         this.updatesQueue.clear();
         this.running = true;
+        updateHandlerThread.start();
+        updatesHandlerThread.start();
     }
 
     void stop() {
         this.running = false;
+        this.updatesQueue.clear();
+        this.needGetUpdateState.set(false);
+        this.gettingDifferences.set(false);
+        updateHandlerThread.interrupt();
+        updatesHandlerThread.interrupt();
     }
 
     public boolean isRunning() {
-        return this.running;
+        return (this.running && this.updatesHandlerThread.isAlive() && updateHandlerThread.isAlive);
     }
 
     /**
@@ -221,11 +228,13 @@ public class MainHandler implements NotificationsService.NotificationObserver {
 
         private UpdatesHandlerThread() {
             super();
+            setName("UpdatesHandlerThread#" + this.getId());
         }
 
         @Override
         public void interrupt() {
             this.isAlive = false;
+            MainHandler.this.updatesQueue.clear();
             super.interrupt();
         }
 
@@ -238,7 +247,7 @@ public class MainHandler implements NotificationsService.NotificationObserver {
                         getUpdatesState();
                     }
                     updates = MainHandler.this.updatesQueue.pollFirst();
-                    if (updates == null) {
+                    if (updates == null && isAlive) {
                         synchronized (MainHandler.this.updatesQueue) {
                             try {
                                 MainHandler.this.updatesQueue.wait();
@@ -262,6 +271,7 @@ public class MainHandler implements NotificationsService.NotificationObserver {
 
         private UpdateHandlerThread() {
             super();
+            setName("UpdateHandlerThread#" + this.getId());
         }
 
         void addUpdate(UpdateWrapper newUpdate) {
@@ -281,6 +291,7 @@ public class MainHandler implements NotificationsService.NotificationObserver {
         @Override
         public void interrupt() {
             this.isAlive = false;
+            updates.clear();
             super.interrupt();
         }
 

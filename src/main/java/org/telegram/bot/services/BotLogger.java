@@ -25,12 +25,12 @@ public class BotLogger {
     private static final String pathToLogs = "./";
     private static final Logger logger = Logger.getLogger("Telegram Bot");
     private static volatile LocalDateTime lastFileDate;
-    private static LoggerThread loggerThread = new LoggerThread();
-    private static final ConcurrentLinkedQueue<String> logsToFile = new ConcurrentLinkedQueue<>();
+//    private static LoggerThread loggerThread = new LoggerThread();
+//    private static final ConcurrentLinkedQueue<String> logsToFile = new ConcurrentLinkedQueue<>();
 
     static {
         logger.setLevel(Level.INFO);
-        loggerThread.start();
+//        loggerThread.start();
         lastFileDate = LocalDateTime.now();
         if ((currentFileName == null) || (currentFileName.compareTo("") == 0)) {
             currentFileName = pathToLogs + dateFormatterForFileName(lastFileDate) + ".log";
@@ -303,10 +303,10 @@ public class BotLogger {
 
     private static void logMsgToFile(@NotNull Level level, @NotNull String tag, @NotNull String msg, @NotNull String dateForLog) {
         final String logMessage = String.format("%s{%s} %s - %s", dateForLog, level.toString(), tag, msg);
-        logsToFile.add(logMessage);
-        synchronized (logsToFile) {
-            logsToFile.notifyAll();
-        }
+//        logsToFile.add(logMessage);
+//        synchronized (logsToFile) {
+//            logsToFile.notifyAll();
+//        }
     }
 
     private static void logThrowableToFile(@NotNull Level level, @NotNull String tag, @NotNull Throwable throwable, @NotNull String dateForLog) {
@@ -314,40 +314,40 @@ public class BotLogger {
         for (StackTraceElement element : throwable.getStackTrace()) {
             throwableLog += "\tat " + element + "\n";
         }
-        logsToFile.add(throwableLog);
-        synchronized (logsToFile) {
-            logsToFile.notifyAll();
-        }
+//        logsToFile.add(throwableLog);
+//        synchronized (logsToFile) {
+//            logsToFile.notifyAll();
+//        }
     }
 
     private static boolean isLoggable(Level level) {
         return logger.isLoggable(level);
     }
 
-    private static class LoggerThread extends Thread {
-
-        @Override
-        public void run() {
-            while(true) {
-                final ConcurrentLinkedQueue<String> stringsToLog = new ConcurrentLinkedQueue<>();
-                synchronized (logsToFile) {
-                    if (logsToFile.isEmpty()) {
-                        try {
-                            logsToFile.wait();
-                        } catch (InterruptedException e) {
-                            return;
-                        }
-                        if (logsToFile.isEmpty()) {
-                            continue;
-                        }
-                    }
-                    stringsToLog.addAll(logsToFile);
-                    logsToFile.clear();
-                }
-
-                stringsToLog.stream().forEach(logginFile::println);
-                logginFile.flush();
-            }
-        }
-    }
+//    private static class LoggerThread extends Thread {
+//
+//        @Override
+//        public void run() {
+//            while(true) {
+//                final ConcurrentLinkedQueue<String> stringsToLog = new ConcurrentLinkedQueue<>();
+//                synchronized (logsToFile) {
+//                    if (logsToFile.isEmpty()) {
+//                        try {
+//                            logsToFile.wait();
+//                        } catch (InterruptedException e) {
+//                            return;
+//                        }
+//                        if (logsToFile.isEmpty()) {
+//                            continue;
+//                        }
+//                    }
+//                    stringsToLog.addAll(logsToFile);
+//                    logsToFile.clear();
+//                }
+//
+//                stringsToLog.stream().forEach(logginFile::println);
+//                logginFile.flush();
+//            }
+//        }
+//    }
 }

@@ -41,6 +41,7 @@ public class KernelAuth {
     private final int apiKey;
     private final String apiHash;
     private Timer loginTimer = new Timer();
+    private boolean cancelled;
 
 
     public KernelAuth(AbsApiState apiState, BotConfig config, IKernelComm kernelComm, int apiKey, String apiHash) {
@@ -49,14 +50,20 @@ public class KernelAuth {
         this.config = config;
         this.apiKey = apiKey;
         this.apiHash = apiHash;
+        this.cancelled = false;
     }
 
     public boolean init() {
         return true;
     }
 
-    public LoginStatus start() {
-        return config.isBot() ? loginBot() : login();
+    public LoginStatus start(boolean sendCode) {
+        return config.isBot() ? loginBot() : login(sendCode);
+    }
+
+    public void stop() {
+        loginTimer.cancel();
+        cancelled = true;
     }
 
     /**
@@ -123,7 +130,7 @@ public class KernelAuth {
 
     //region Private helpers
 
-    private LoginStatus login() {
+    private LoginStatus login(boolean sendCode) {
         LoginStatus result;
         try {
             if (getApiState().isAuthenticated()) {
@@ -141,9 +148,11 @@ public class KernelAuth {
                 BotLogger.info(LOGTAG,"Sending code to phone " + config.getPhoneNumber() + "...");
                 TLSentCode sentCode = null;
                 try {
-                    final TLRequestAuthSendCode tlRequestAuthSendCode = getSendCodeRequest();
-                    sentCode = kernelComm.getApi().doRpcCallNonAuth(tlRequestAuthSendCode);
-                    createNextCodeTimer(sentCode.getTimeout());
+                    if(sendCode) {
+                        final TLRequestAuthSendCode tlRequestAuthSendCode = getSendCodeRequest();
+                        sentCode = kernelComm.getApi().doRpcCallNonAuth(tlRequestAuthSendCode);
+                    }
+//                    createNextCodeTimer(sentCode.getTimeout());
                 } catch (RpcException e) {
                     if (e.getErrorCode() == ERROR303) {
                         final int destDC = updateDCWhenLogin(e);
@@ -242,19 +251,21 @@ public class KernelAuth {
     }
 
     private void createNextCodeTimer(int timeout) {
-        this.loginTimer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                try {
-                    final TLRequestAuthSendCode tlRequestAuthSendCode = getSendCodeRequest();
-                    TLSentCode sentCode = kernelComm.getApi().doRpcCallNonAuth(tlRequestAuthSendCode);
-                    this.cancel();
-                    createNextCodeTimer(sentCode.getTimeout());
-                } catch (Exception e) {
-                    BotLogger.error(LOGTAG, e);
+        if(!cancelled) {
+            this.loginTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    try {
+                        final TLRequestAuthSendCode tlRequestAuthSendCode = getSendCodeRequest();
+                        TLSentCode sentCode = kernelComm.getApi().doRpcCallNonAuth(tlRequestAuthSendCode);
+                        this.cancel();
+                        createNextCodeTimer(sentCode.getTimeout());
+                    } catch (Exception e) {
+                        BotLogger.error(LOGTAG, e);
+                    }
                 }
-            }
-        }, (timeout == 0) ? TIMEUNTILCALLINGUSER : timeout);
+            }, (timeout == 0) ? TIMEUNTILCALLINGUSER : timeout);
+        }
     }
 
     private TLRequestAuthSendCode getSendCodeRequest() {
