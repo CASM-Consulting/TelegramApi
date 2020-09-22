@@ -41,7 +41,7 @@ public class TelegramBot {
             throw new NullPointerException("At least a ChatUpdatesBuilder must be added");
         }
         BotLogger.info(LOGTAG, "--------------KERNEL CREATED--------------");
-//        setLogging();
+        setLogging();
         this.apiKey = apiKey;
         this.apiHash = apiHash;
         this.config = config;

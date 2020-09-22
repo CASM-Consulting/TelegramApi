@@ -9,7 +9,9 @@ import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
@@ -18,7 +20,8 @@ public class PyroSelector {
     private static boolean DO_NOT_CHECK_NETWORK_THREAD = true;
     static final int BUFFER_SIZE = 64 * 1024;
     private Thread networkThread;
-    private final Selector nioSelector;
+    private Selector nioSelector;
+    private List<SelectableChannel> channels;
     final ByteBuffer networkBuffer;
     private boolean closed;
 
@@ -31,6 +34,7 @@ public class PyroSelector {
             throw new PyroException("Failed to open a selector?!", exc);
         }
 
+        channels = new ArrayList<>();
         closed = false;
         this.networkThread = new NetworkThread();
         this.networkThread.start();
@@ -76,7 +80,6 @@ public class PyroSelector {
     public void select(long eventTimeout) {
         this.checkThread();
 
-        //
 
         this.executePendingTasks();
         this.performNioSelect(eventTimeout);
@@ -182,7 +185,7 @@ public class PyroSelector {
         public NetworkThread() {
             super();
             isAlive = true;
-            this.setName("Selector Thread#" + this.getId());
+            this.setName("PyroSelector Thread#" + this.getId());
         }
 
         @Override
@@ -199,11 +202,38 @@ public class PyroSelector {
                     PyroSelector.this.select();
                 }
             } catch (Exception exc) {
+                Thread.currentThread().interrupt();
                 throw new IllegalStateException(exc);
             }
         }
 
     }
+
+//    public class NIOSelectorThread extends Thread {
+//
+//        private boolean isAlive;
+//
+//        public NIOSelectorThread() {
+//            super();
+//            isAlive = true;
+//            this.setName("NIOSelectorThread#" + this.getId() );
+//        }
+//
+//        @Override
+//        public void interrupt(){
+//            isAlive = false;
+//            super.interrupt();
+//        }
+//
+//        @Override
+//        public void run() {
+//            try {
+//                nioSelector = Selector.open();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//    }
 
     private BlockingQueue<Runnable> tasks = new LinkedBlockingDeque<>();
 
@@ -226,14 +256,19 @@ public class PyroSelector {
 
     public void close() throws IOException {
         closed = true;
-        this.nioSelector.close();
+        this.tasks.clear();
         this.networkThread.interrupt();
         this.networkBuffer.clear();
+        this.nioSelector.close();
+        for(SelectableChannel channel : channels) {
+            channel.close();
+        }
     }
 
     //
 
     final SelectionKey register(SelectableChannel channel, int ops) throws IOException {
+        channels.add(channel);
         return channel.register(this.nioSelector, ops);
     }
 

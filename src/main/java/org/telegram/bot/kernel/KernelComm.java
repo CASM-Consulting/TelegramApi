@@ -96,6 +96,11 @@ public class KernelComm implements IKernelComm {
         }
     }
 
+    public void shutdown() {
+        BotLogger.debug("DEBUG: Shutting down ", "EXE sheduler");
+        exe.shutdownNow();
+    }
+
     public void setMainHandler(@NotNull MainHandler mainHandler) {
         this.mainHandler = mainHandler;
     }

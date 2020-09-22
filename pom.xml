@@ -6,7 +6,7 @@
     <packaging>jar</packaging>
     <groupId>uk.ac.susx.tag.telegram</groupId>
     <artifactId>casmtelegramapi</artifactId>
-    <version>66.3.29</version>
+    <version>66.3.32</version>
 
     <parent>
         <groupId>uk.ac.susx.tag</groupId>

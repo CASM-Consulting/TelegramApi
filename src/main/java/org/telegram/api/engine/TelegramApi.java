@@ -239,7 +239,6 @@ public class TelegramApi {
      */
     public void close() {
         if (!this.isClosed) {
-            this.apiCallback.onAuthCancelled(this);
             this.isClosed = true;
             if (this.timeoutThread != null) {
                 this.timeoutThread.interrupt();
